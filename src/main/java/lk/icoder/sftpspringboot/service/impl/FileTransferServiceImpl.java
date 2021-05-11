@@ -43,8 +43,9 @@ public class FileTransferServiceImpl implements FileTransferService {
     public void fileTransfer() {
 
         // remote server
-        String finalRemoteLocation = "\\secure_exchange\\";
+        String finalRemoteLocation = "/secure_exchange/";
         String baseRemoteFile = "/cardcenter/";
+        String remoteFolder = "\\cardcenter\\visa1\\";
 
         // local
         String downloadedLocal = "F:\\MY WORK\\FTP\\local_file_path\\";
@@ -54,28 +55,37 @@ public class FileTransferServiceImpl implements FileTransferService {
         try {
 
             // get files from remote and store it in local
-            Vector<ChannelSftp.LsEntry> fileList = jSchConfig.createChannelSftp().ls("\\cardcenter\\");
-            for (int i = 0; i < fileList.size(); i++) {
-                ChannelSftp.LsEntry lsEntry = (ChannelSftp.LsEntry) fileList.get(i);
+            Vector<ChannelSftp.LsEntry> folderList = jSchConfig.createChannelSftp().ls(baseRemoteFile);
+            for (ChannelSftp.LsEntry lsEntry : folderList) {
                 if (!((lsEntry.getFilename().equals(".")) || (lsEntry.getFilename().equals("..")))) {
-                    jSchConfig.createChannelSftp().get(baseRemoteFile + lsEntry.getFilename(), downloadedLocal + lsEntry.getFilename());
-                }
+                    Vector<ChannelSftp.LsEntry> fileList = jSchConfig.createChannelSftp().ls(baseRemoteFile + lsEntry.getFilename() + "/");
+                    for(ChannelSftp.LsEntry fileLsEntry : fileList) {
+                        if (!((fileLsEntry.getFilename().equals(".")) || (fileLsEntry.getFilename().equals("..")))) {
+                            jSchConfig.createChannelSftp()
+                                    .get(baseRemoteFile + lsEntry.getFilename() + "/" + fileLsEntry.getFilename(),
+                                            downloadedLocal + lsEntry.getFilename() + "\\" + fileLsEntry.getFilename());
+                        }
+                    }
 
+                }
             }
 
             // transfer file from local to remote server
-            Set<String> fileSet = Stream.of(new File(downloadedLocal).listFiles())
-                    .filter(file -> !file.isDirectory())
+            Set<String> folderSet = Stream.of(new File(downloadedLocal).listFiles())
+//                    .filter(file -> !file.isDirectory())
                     .map(File::getName)
                     .collect(Collectors.toSet());
 
-            Iterator<String> iterator = fileSet.iterator();
-            while (iterator.hasNext()) {
-//                System.out.println(iterator.next());
-                jSchConfig.createChannelSftp().put(downloadedLocal + iterator.next(), finalRemoteLocation);
+            for (String folderPath : folderSet) {
+                Set<String> fileset = Stream.of(new File(downloadedLocal + folderPath + "\\").listFiles())
+                        .map(File::getName)
+                        .collect(Collectors.toSet());
+
+                for (String filePath : fileset) {
+                    jSchConfig.createChannelSftp().put(downloadedLocal + folderPath + "\\" + filePath,
+                            finalRemoteLocation + folderPath + '/');
+                }
             }
-
-
 
             jSchConfig.createChannelSftp().exit();
 
